@@ -1,0 +1,74 @@
+================ 1. Один кадр, vsync выключен (5000 кадров, 3 прогона)
+orig_bench1  avg frame time       : 0.4038 ms   (2477 FPS)
+orig_bench1  avg frame time       : 0.4038 ms   (2476 FPS)
+orig_bench1  avg frame time       : 0.4183 ms   (2391 FPS)
+new_bench1  avg frame time       : 0.2120 ms   (4716 FPS)
+new_bench1  avg frame time       : 0.2027 ms   (4933 FPS)
+new_bench1  avg frame time       : 0.2025 ms   (4937 FPS)
+
+================ 2. Вызовы OpenGL за кадр
+--- orig_bench1
+per frame: draw calls (glBegin+glDraw*+glCallList) : 2205.7
+per frame: glBegin           : 2205.7
+per frame: glVertex*         : 8822.6
+per frame: glColor*          : 2205.7
+per frame: glDrawArrays/Elems: 0.0 (verts/indices 0.0)
+per frame: glCallList        : 0.0
+per frame: GL API calls total: 15440.6
+--- new_bench1
+per frame: draw calls (glBegin+glDraw*+glCallList) : 2.0
+per frame: glBegin           : 0.0
+per frame: glVertex*         : 0.0
+per frame: glColor*          : 0.0
+per frame: glDrawArrays/Elems: 2.0 (verts/indices 6588.0)
+per frame: glCallList        : 0.0
+per frame: GL API calls total: 7.0
+
+================ 3. CPU процесса на 5000 кадров (perf stat)
+orig_bench1  2,826.39 msec task-clock:u   2.183921000 seconds user  0.611191000 seconds sys 
+new_bench1  995.35 msec task-clock:u   0.532640000 seconds user  0.436816000 seconds sys 
+
+================ 4. Реальная игра, vsync включён (CPU в окнах 2–7 с и 10–15 с)
+./orig_bench2    игра:  68.0 мс CPU/с ( 6.8% ядра) | Game Over:  60.0 мс CPU/с ( 6.0% ядра) | VmHWM 105128 kB, RssAnon 20108 kB
+./new_bench2     игра:  24.0 мс CPU/с ( 2.4% ядра) | Game Over:   6.0 мс CPU/с ( 0.6% ядра) | VmHWM 101840 kB, RssAnon 20192 kB
+./orig_bench2    игра:  46.0 мс CPU/с ( 4.6% ядра) | Game Over:  52.0 мс CPU/с ( 5.2% ядра) | VmHWM 105348 kB, RssAnon 20180 kB
+./new_bench2     игра:   8.0 мс CPU/с ( 0.8% ядра) | Game Over:   0.0 мс CPU/с ( 0.0% ядра) | VmHWM 102856 kB, RssAnon 20180 kB
+
+================ 5. Где тратится CPU (perf record, по библиотекам)
+--- orig_bench1
+    71.77%  libgallium-26.2.5-arch1.1.so
+    10.76%  orig_bench1                 
+     6.69%  libc.so.6                   
+     1.42%  glcount.so                  
+     1.25%  libGL.so.1.7.0              
+--- new_bench1
+    36.72%  libgallium-26.2.5-arch1.1.so
+    23.68%  libc.so.6                   
+     5.19%  ld-linux-x86-64.so.2        
+     5.01%  libglib-2.0.so.0.9000.1     
+     4.57%  libwayland-client.so.0.26.0 
+
+================ 6. Размер секций программы
+   text	   data	    bss	    dec	    hex	filename
+  13787	    840	    928	  15555	   3cc3	../original/tetris
+  14976	    988	  65264	  81228	  13d4c	../tetris
+
+================ 7. Инструкции CPU в функциях отрисовки (callgrind, 300 кадров, ~5 мин)
+--- callgrind_orig.out (на 300 кадров)
+225,463,562 (100.0%)  tetris_orig_bench.c:draw_all_gl [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+225,463,562 (100.0%)  tetris_orig_bench.c:main [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+178,626,234 (79.23%)  tetris_orig_bench.c:fill_rect [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+160,147,991 (71.03%)  tetris_orig_bench.c:draw_panel_gl [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+158,832,317 (70.45%)  tetris_orig_bench.c:draw_text [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+ 62,339,019 (27.65%)  tetris_orig_bench.c:draw_board_gl [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+ 18,176,142 ( 8.06%)  tetris_orig_bench.c:stroke_rect [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+ 13,247,060 ( 5.88%)  tetris_orig_bench.c:px_to_ndc [/home/poxoguh/sub/tetris lb/profiling/orig_cg]
+--- callgrind_new.out (на 300 кадров)
+17,499,909 (100.0%)  ../tetris.c:main [/home/poxoguh/sub/tetris lb/profiling/new_cg]
+17,209,215 (98.34%)  ../tetris.c:build_dynamic [/home/poxoguh/sub/tetris lb/profiling/new_cg]
+ 9,025,877 (51.58%)  ../tetris.c:upload_layer [/home/poxoguh/sub/tetris lb/profiling/new_cg]
+ 8,879,346 (50.74%)  /usr/src/debug/mesa/build/../mesa-26.2.5/src/mesa/main/bufferobj.c:buffer_data_error [/usr/lib/libgallium-26.2.5-arch1.1.so]
+ 8,851,146 (50.58%)  /usr/src/debug/mesa/build/../mesa-26.2.5/src/mesa/main/bufferobj.c:_mesa_bufferobj_data [/usr/lib/libgallium-26.2.5-arch1.1.so]
+ 8,821,885 (50.41%)  /usr/src/debug/mesa/build/../mesa-26.2.5/src/gallium/auxiliary/util/u_threaded_context.c:tc_buffer_subdata [/usr/lib/libgallium-26.2.5-arch1.1.so]
+ 5,146,200 (29.41%)  ../tetris.c:push_cell [/home/poxoguh/sub/tetris lb/profiling/new_cg]
+ 4,402,500 (25.16%)  ../tetris.c:push_quad [/home/poxoguh/sub/tetris lb/profiling/new_cg]
